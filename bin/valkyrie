@@ -1,0 +1,16 @@
+#!/usr/bin/env ruby
+
+$:.unshift File.expand_path("../../lib", __FILE__)
+
+require "valkyrie/database"
+
+db = Valkyrie::Database.new("mysql://localhost/growing")
+db2 = Valkyrie::Database.new("postgres://localhost/growing")
+
+puts db.tables.inspect
+
+
+db.tables.each do |name, schema|
+  db2.create_table(name, schema)
+end
+

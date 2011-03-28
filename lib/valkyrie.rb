@@ -1,0 +1,3 @@
+module Valkyrie
+  # Your code goes here...
+end
