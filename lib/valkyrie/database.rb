@@ -4,6 +4,8 @@ require "valkyrie/endpoint"
 
 class Valkyrie::Database < Valkyrie::Endpoint
 
+  Sequel.extension :schema_to_hash
+
   attr_reader :db
 
   def initialize(uri)
@@ -11,12 +13,10 @@ class Valkyrie::Database < Valkyrie::Endpoint
   end
 
   def tables
-    Sequel.extension :schema_to_hash
     db.schema_to_hash
   end
 
   def create_table(name, schema)
-    Sequel.extension :schema_to_hash
     db.drop_table(name) if db.table_exists?(name)
     db.hash_to_schema(name, schema)
   end
