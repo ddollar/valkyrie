@@ -7,10 +7,24 @@ require "valkyrie/database"
 db = Valkyrie::Database.new("mysql://localhost/growing")
 db2 = Valkyrie::Database.new("postgres://localhost/growing")
 
-puts db.tables.inspect
+tables = db.tables
 
+puts tables.inspect
+
+tables.each do |name, schema|
+  db2.create_table(name, schema)
+end
 
 db.tables.each do |name, schema|
   db2.create_table(name, schema)
 end
 
+def create_file
+  File.open("/tmp/table.txt", "w")
+end
+
+f = create_file
+db.dump_table(tables.keys.first, f)
+f.close
+
+db2.load_table(tables.keys.first, File.open("/tmp/table.txt", "r"))

@@ -1,3 +1,4 @@
+require "csv"
 require "sequel"
 require "valkyrie"
 require "valkyrie/endpoint"
@@ -10,6 +11,7 @@ class Valkyrie::Database < Valkyrie::Endpoint
 
   def initialize(uri)
     @db = Sequel.connect(uri)
+    Sequel::MySQL.convert_invalid_date_time = nil if @db.adapter_scheme == :mysql
   end
 
   def tables
@@ -22,11 +24,24 @@ class Valkyrie::Database < Valkyrie::Endpoint
   end
 
   def dump_table(name, stream)
-    raise "must override"
+    columns = db.schema(name).map(&:first)
+    dataset = db[name.to_sym]
+
+    stream.puts CSV.generate_line(columns.map(&:to_s))
+    dataset.each do |row|
+      stream.puts CSV.generate_line(columns.map { |c| row[c] })
+    end
+
+    columns
   end
 
   def load_table(name, stream)
-    raise "must override"
+    csv = CSV.new(stream)
+
+    columns = csv.gets
+    csv.each do |row|
+      db[name].insert columns, row
+    end
   end
 
 end
