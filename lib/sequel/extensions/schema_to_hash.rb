@@ -4,21 +4,19 @@ module Sequel
 
   class Database
 
-    def schema_to_hash
-      self.tables.inject({}) do |hash, table|
-        hash.update(table => {
-          :columns => schema(table).map do |name, info|
-            _, name, db_type, options = column_schema_to_generator_opts(name, info, {})
-            options[:primary_key] = true if info[:primary_key]
-            { 
-              :name => name, 
-              :db_type => COLUMN_TYPE_CLASS_TO_STRING[db_type],
-              :options => options 
-            }
-          end,
-          :indexes => self.indexes(table)
-        })
-      end
+    def schema_to_hash(name)
+      {
+        :columns => schema(name).map do |name, info|
+          _, name, db_type, options = column_schema_to_generator_opts(name, info, {})
+          options[:primary_key] = true if info[:primary_key]
+          {
+            :name => name,
+            :db_type => COLUMN_TYPE_CLASS_TO_STRING[db_type],
+            :options => options
+          }
+        end,
+        :indexes => self.indexes(name)
+      }
     end
 
     def hash_to_schema(name, hash)

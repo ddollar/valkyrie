@@ -4,27 +4,16 @@ $:.unshift File.expand_path("../../lib", __FILE__)
 
 require "valkyrie/database"
 
-db = Valkyrie::Database.new("mysql://localhost/growing")
-db2 = Valkyrie::Database.new("postgres://localhost/growing")
+url1 = ARGV.shift
+url2 = ARGV.shift
 
-tables = db.tables
-
-puts tables.inspect
-
-tables.each do |name, schema|
-  db2.create_table(name, schema)
+unless url1 && url2
+  puts "valkyrie FROM TO"
+  exit 1
 end
 
-db.tables.each do |name, schema|
-  db2.create_table(name, schema)
-end
+db1 = Valkyrie::Database.new(url1)
+db2 = Valkyrie::Database.new(url2)
 
-def create_file
-  File.open("/tmp/table.txt", "w")
-end
+db1.transfer_to(db2)
 
-f = create_file
-db.dump_table(tables.keys.first, f)
-f.close
-
-db2.load_table(tables.keys.first, File.open("/tmp/table.txt", "r"))
