@@ -2,18 +2,6 @@
 
 $:.unshift File.expand_path("../../lib", __FILE__)
 
-require "valkyrie/database"
+require "valkyrie/cli"
 
-url1 = ARGV.shift
-url2 = ARGV.shift
-
-unless url1 && url2
-  puts "valkyrie FROM TO"
-  exit 1
-end
-
-db1 = Valkyrie::Database.new(url1)
-db2 = Valkyrie::Database.new(url2)
-
-db1.transfer_to(db2)
-
+Valkyrie::CLI.start(*ARGV)

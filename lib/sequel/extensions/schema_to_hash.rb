@@ -19,7 +19,7 @@ module Sequel
       }
     end
 
-    def hash_to_schema(name, hash)
+    def hash_to_schema(name, hash, &cb)
       generator = Sequel::Schema::Generator.new(self) do
         hash[:columns].each do |column|
           type = COLUMN_TYPE_STRING_TO_CLASS[column[:db_type]]
@@ -28,8 +28,9 @@ module Sequel
         end
       end
       self.create_table(name, :generator => generator)
-      hash[:indexes].values.each do |index|
-        self.add_index(name, index.delete(:columns), index)
+      hash[:indexes].each do |index_name, index|
+        cb.call(:index, index_name)
+        self.add_index(name, index.delete(:columns), index.merge(:name => index_name))
       end
     end
 
