@@ -1,4 +1,11 @@
 source "http://rubygems.org"
 
-# Specify your gem's dependencies in valkyrie.gemspec
 gemspec
+
+group :development do
+  gem "rake"
+  gem "rspec"
+  gem "mysql"
+  gem "pg"
+  gem "sqlite3"
+end

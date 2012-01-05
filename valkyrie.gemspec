@@ -14,13 +14,5 @@ Gem::Specification.new do |gem|
 
   gem.files = Dir["**/*"].select { |d| d =~ %r{^(README|bin/|data/|ext/|lib/|spec/|test/)} }
 
-  gem.add_development_dependency "rake"
-  gem.add_development_dependency "rspec", "~> 2.5.0"
-
-  gem.add_development_dependency "mysql"
-  gem.add_development_dependency "pg"
-  gem.add_development_dependency "sqlite3"
-
-  gem.add_dependency "sequel",      "~> 3.20.0"
-  gem.add_dependency "rest-client", "~> 1.6.1"
+  gem.add_dependency "sequel", "~> 3.20.0"
 end
