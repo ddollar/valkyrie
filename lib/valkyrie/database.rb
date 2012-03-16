@@ -19,10 +19,16 @@ class Valkyrie::Database
       cb.call(:table, [name, connection[name].count])
       transfer_table(name, db, &cb)
     end
+    cb.call(:constraints, tables.length)
+    tables.each do |name|
+      cb.call(:table_name, name)
+      transfer_ddl(name, db, &cb)
+    end
   end
 
   def transfer_table(name, db, &cb)
     db.connection.drop_table(name) if db.connection.table_exists?(name)
+#    db.connection.hash_to_schema(name, connection.schema_to_hash(name, connection.database_type), &cb)
     db.connection.hash_to_schema(name, connection.schema_to_hash(name), &cb)
 
     columns = connection.schema(name).map(&:first)
@@ -48,7 +54,13 @@ class Valkyrie::Database
     send_rows(db, name, columns, buffer) if buffer.length > 0
     cb.call(:end)
 
+    connection.not_transferred(name)
+
     columns
+  end
+
+  def transfer_ddl(name, db, &cb)
+    db.connection.write_extra_ddl(name, connection.read_extra_ddl(name), &cb)
   end
 
   def send_rows(db, name, columns, rows)
