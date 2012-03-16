@@ -10,9 +10,13 @@ module Sequel
           _, name, db_type, options = column_schema_to_generator_opts(name, info, {})
           {
             :name => name,
-            :db_type => COLUMN_TYPE_CLASS_TO_STRING[db_type],
+            :db_type => if info[:type] == :enum
+                          "enum"
+                        else
+                          COLUMN_TYPE_CLASS_TO_STRING[db_type]
+                        end,
             :options => options,
-            :auto_increment => info[:auto_increment]
+            :raw_info => info
           }
         end,
         # this allows for multi-column primary keys to be migrated
@@ -30,12 +34,17 @@ module Sequel
     end
 
     def hash_to_schema(name, hash, &cb)
-      database_type = self.database_type
+      db_conn = self.dup
       generator = Sequel::Schema::Generator.new(self) do
         hash[:columns].each do |column|
-          type = COLUMN_TYPE_STRING_TO_CLASS[column[:db_type]]
-          raise "invalid type" unless type
-          if(hash[:from_db] == :mysql && database_type == :postgres && column[:auto_increment] == true)
+          if column[:db_type] != "enum"
+            type = COLUMN_TYPE_STRING_TO_CLASS[column[:db_type]]
+            raise "invalid type" unless type
+          else
+            db_conn["CREATE TYPE #{name}_#{column[:name]} AS #{column[:raw_info][:db_type]}"].all
+            type = "#{name}_#{column[:name]}"
+          end
+          if(hash[:from_db] == :mysql && db_conn.database_type == :postgres && column[:raw_info][:auto_increment] == true)
             type = "Serial"
           end
           self.send(type.to_s, column[:name], column[:options])
@@ -63,7 +72,6 @@ module Sequel
     COLUMN_TYPE_STRING_TO_CLASS = {
       "string" => String,
       "integer" => Integer,
-      "tinyint" => Integer,
       "fixnum" => Fixnum,
       "bignum" => Bignum,
       "float" => Float,
