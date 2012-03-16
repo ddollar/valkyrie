@@ -15,6 +15,7 @@ class Valkyrie::ProgressBar
   VERSION = "0.9"
 
   def initialize (title, total, out = STDERR)
+
     @title = title
     @total = total
     @out = out
