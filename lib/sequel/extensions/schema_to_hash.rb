@@ -10,9 +10,13 @@ module Sequel
           _, name, db_type, options = column_schema_to_generator_opts(name, info, {})
           {
             :name => name,
-            :db_type => COLUMN_TYPE_CLASS_TO_STRING[db_type],
+            :db_type => if info[:type] == :enum
+                          "enum"
+                        else
+                          COLUMN_TYPE_CLASS_TO_STRING[db_type]
+                        end,
             :options => options,
-            :auto_increment => info[:auto_increment]
+            :raw_info => info
           }
         end,
         # this allows for multi-column primary keys to be migrated
@@ -30,12 +34,17 @@ module Sequel
     end
 
     def hash_to_schema(name, hash, &cb)
-      database_type = self.database_type
+      db_conn = self.dup
       generator = Sequel::Schema::Generator.new(self) do
         hash[:columns].each do |column|
-          type = COLUMN_TYPE_STRING_TO_CLASS[column[:db_type]]
-          raise "invalid type" unless type
-          if(hash[:from_db] == :mysql && database_type == :postgres && column[:auto_increment] == true)
+          if column[:db_type] != "enum"
+            type = COLUMN_TYPE_STRING_TO_CLASS[column[:db_type]]
+            raise "invalid type" unless type
+          else
+            db_conn["CREATE TYPE #{name}_#{column[:name]} AS #{column[:raw_info][:db_type]}"].all
+            type = "#{name}_#{column[:name]}"
+          end
+          if(hash[:from_db] == :mysql && db_conn.database_type == :postgres && column[:raw_info][:auto_increment] == true)
             type = "Serial"
           end
           self.send(type.to_s, column[:name], column[:options])
@@ -63,7 +72,6 @@ module Sequel
     COLUMN_TYPE_STRING_TO_CLASS = {
       "string" => String,
       "integer" => Integer,
-      "tinyint" => Integer,
       "fixnum" => Fixnum,
       "bignum" => Bignum,
       "float" => Float,
@@ -112,34 +120,45 @@ module Sequel
       }
     end
 
-    def write_extra_ddl(name, hash, &cb)
-      hash[:indexes].each do |index_name, index|
-        cb.call(:index, index_name)
+    def write_extra_ddl(name, hash)
+      if hash[:indexes].count > 0
+        print "\t       index:"
+        hash[:indexes].each do |index_name, index|
+          print " #{index_name}"
 
-        # mysql index namespaces are per table, vs per database, so it is possible for
-        # there to be, in a mysql->postgresql migration, index name conflicts.
-
-        # this code checks to see if its coming *from* a mysql database to postgresql,
-        # and, if so, makes sure that an attempt to create a second idx of the same name
-        # doesn't results in a failed migration, but just renames the index to prepend
-        # table name
-        if hash[:from_db_type] == :mysql && self.database_type == :postgres
-          if self[:pg_class].filter(:relname => index_name.to_s, :relkind => 'i').all.count > 0
-            index_name = "#{name}_#{index_name}"
+          # mysql index namespaces are per table, vs per database, so it is possible for
+          # there to be, in a mysql->postgresql migration, index name conflicts.
+  
+          # this code checks to see if its coming *from* a mysql database to postgresql,
+          # and, if so, makes sure that an attempt to create a second idx of the same name
+          # doesn't results in a failed migration, but just renames the index to prepend
+          # table name
+          if hash[:from_db_type] == :mysql && self.database_type == :postgres
+            if self[:pg_class].filter(:relname => index_name.to_s, :relkind => 'i').all.count > 0
+              index_name = "#{name}_#{index_name}"
+            end
+          end
+          self.add_index(name, index.delete(:columns), index.merge(:name => index_name))
+        end
+        puts ""
+      end
+      if hash[:foreign_keys].count > 0
+        print "\tforeign keys:"
+        hash[:foreign_keys].each do |row|
+          print " #{row[:constraint_name]}"
+          self.alter_table name do
+            add_foreign_key( [ row[:column_name] ] , row[:referenced_table_name], { :key => row[:referenced_column_name], :on_delete => row[:delete_rule], :on_update => row[:update_rule] })
           end
         end
-        self.add_index(name, index.delete(:columns), index.merge(:name => index_name))
+        puts ""
       end
-      hash[:foreign_keys].each do |row|
-        cb.call(:fk, row[:constraint_name])
-        self.alter_table name do
-          add_foreign_key( [ row[:column_name] ] , row[:referenced_table_name], { :key => row[:referenced_column_name], :on_delete => row[:delete_rule], :on_update => row[:update_rule] })
-        end
-      end
-      if self.database_type == :postgres
+      if self.database_type == :postgres && hash[:serial_columns].count > 0
+        print "\t   sequences:"
         hash[:serial_columns].each do |column|
+          print " #{column}"
           self["SELECT * FROM setval(?, ( SELECT max(?) FROM ? ), true)", "#{name}_#{column}_seq", column, name].all
         end
+        puts ""
       end
     end
   end
