@@ -49,7 +49,7 @@ module Sequel
           end
           self.send(type.to_s, column[:name], column[:options])
         end
-        self.send("primary_key", hash[:primary_keys]);
+        self.send("primary_key", hash[:primary_keys]) if hash[:primary_keys].any?
       end
       self.create_table(name, :generator => generator)
       hash[:datetime_default].each do |row|
